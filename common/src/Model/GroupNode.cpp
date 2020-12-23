@@ -29,7 +29,8 @@
 #include "Model/TagVisitor.h"
 #include "Model/WorldNode.h"
 
-#include <kdl/result.h>
+#include <kdl/overload.h>
+#include <kdl/vector_utils.h>
 
 #include <vecmath/ray.h>
 
@@ -38,10 +39,17 @@
 
 namespace TrenchBroom {
     namespace Model {
+        struct GroupNode::LinkSet {
+            std::vector<GroupNode*> members;
+        };
+
         GroupNode::GroupNode(Group group) :
         m_group(std::move(group)),
+        m_linkSet(std::make_shared<LinkSet>()),
         m_editState(EditState::Closed),
-        m_boundsValid(false) {}
+        m_boundsValid(false) {
+            connectToLinkSet();
+        }
 
         const Group& GroupNode::group() const {
             return m_group;
@@ -83,6 +91,40 @@ namespace TrenchBroom {
 
         void GroupNode::setPersistentId(const IdType persistentId) {
             m_persistentId = persistentId;
+        }
+
+        const std::vector<GroupNode*> GroupNode::linkedGroups() const {
+            return m_linkSet->members;
+        }
+
+        bool inSameLinkSet(const GroupNode& lhs, const GroupNode& rhs) {
+            return lhs.m_linkSet == rhs.m_linkSet;
+        }
+
+        void GroupNode::addToLinkSet(GroupNode& groupNode) {
+            if (inSameLinkSet(*this, groupNode)) {
+                return;
+            }
+            groupNode.disconnectFromLinkSet();
+            groupNode.m_linkSet = m_linkSet;
+            groupNode.connectToLinkSet();
+        }
+
+        bool GroupNode::connectedToLinkSet() const {
+            return kdl::vec_contains(m_linkSet->members, this);
+        }
+
+        void GroupNode::connectToLinkSet() {
+            if (!connectedToLinkSet()) {
+                m_linkSet->members.push_back(this);
+            }
+        }
+
+        void GroupNode::disconnectFromLinkSet() {
+            const auto it = std::find(std::begin(m_linkSet->members), std::end(m_linkSet->members), this);
+            if (it != std::end(m_linkSet->members)) {
+                m_linkSet->members.erase(it);
+            }
         }
 
         void GroupNode::setEditState(const EditState editState) {

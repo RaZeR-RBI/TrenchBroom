@@ -30,14 +30,34 @@
 
 #include <vecmath/bbox.h>
 
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
 
 namespace TrenchBroom {
     namespace Model {
+        /**
+         * A node that groups other nodes to make them editable as one. Multiple groups can form a
+         * link set; a link set is a set of groups such that changes to the children of of one of the
+         * member of the link set are reflected in the other members of the link set.
+         *
+         * Every group is in a link set, even if it isn't linked to any other groups. In that case
+         * the group is the only member in its own link set. A group that is a member of a link set
+         * can be either connected or disconnected from the link set. A disconnected group is not
+         * updated when any other member of the link set changes. An example for a disconnected member
+         * of a link set is a group that has been removed from the map, but is still kept around for
+         * purposes of adding it back to the map again later via undo.
+         *
+         * If two groups A and B are connected to the same link set, we call them "linked groups", 
+         * and we say that A is linked to B and vice versa. 
+         *
+         * When a group node is newly created, it is initially connected from its link set.
+         */
         class GroupNode : public Node, public Object {
         private:
+            struct LinkSet;
+
             enum class EditState {
                 Open,
                 Closed,
@@ -45,6 +65,7 @@ namespace TrenchBroom {
             };
 
             Group m_group;
+            std::shared_ptr<LinkSet> m_linkSet;
             EditState m_editState;
             mutable vm::bbox3 m_logicalBounds;
             mutable vm::bbox3 m_physicalBounds;
@@ -69,6 +90,45 @@ namespace TrenchBroom {
 
             const std::optional<IdType>& persistentId() const;
             void setPersistentId(IdType persistentId);
+
+            /**
+             * Returns the connected members of the link set. If this group is disconnected from the link set,
+             * then it will not be included in the returned vector.
+             */
+            const std::vector<GroupNode*> linkedGroups() const;
+
+            /**
+             * Indicates whether the given groups are in the same link set, either connected or disconnected.
+             */
+            friend bool inSameLinkSet(const GroupNode& lhs, const GroupNode& rhs);
+
+            /**
+             * Adds the given group to this group's link set.
+             *
+             * The given group node is disconnected and removed from its own link set, then it is added to this
+             * group's link set and connected to it. If the given group is already a member of this group's link set,
+             * then nothing happens.
+             */
+            void addToLinkSet(GroupNode& groupNode);
+            
+            /**
+             * Indicates whether this group node is connected to its link set.
+             */
+            bool connectedToLinkSet() const;
+
+            /**
+             * Connects this group to its link set.
+             *
+             * Does nothing if this group is already connected to its link set.
+             */
+            void connectToLinkSet();
+
+            /**
+             * Disconnects this group from its link set.
+             *
+             * Does nothing if this group is already disconnected from its link set.
+             */
+            void disconnectFromLinkSet();
         private:
             void setEditState(EditState editState);
             void setAncestorEditState(EditState editState);
