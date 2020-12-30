@@ -226,6 +226,26 @@ namespace TrenchBroom {
             selectionDidChangeNotifier(selection);
         }
 
+        void connectGroupsToLinkSets(const std::vector<Model::Node*>& nodes) {
+            Model::Node::visitAll(nodes, kdl::overload(
+                [](auto&& thisLambda, Model::WorldNode* worldNode) { worldNode->visitChildren(thisLambda); },
+                [](auto&& thisLambda, Model::LayerNode* layerNode) { layerNode->visitChildren(thisLambda); },
+                [](auto&& thisLambda, Model::GroupNode* groupNode) { groupNode->connectToLinkSet(); groupNode->visitChildren(thisLambda); },
+                [](auto&&, Model::EntityNode*)                     {},
+                [](auto&&, Model::BrushNode*)                      {}
+            ));
+        }
+
+        void disconnectGroupsFromLinksSets(const std::vector<Model::Node*>& nodes) {
+            Model::Node::visitAll(nodes, kdl::overload(
+                [](auto&& thisLambda, Model::WorldNode* worldNode) { worldNode->visitChildren(thisLambda); },
+                [](auto&& thisLambda, Model::LayerNode* layerNode) { layerNode->visitChildren(thisLambda); },
+                [](auto&& thisLambda, Model::GroupNode* groupNode) { groupNode->disconnectFromLinkSet(); groupNode->visitChildren(thisLambda); },
+                [](auto&&, Model::EntityNode*)                     {},
+                [](auto&&, Model::BrushNode*)                      {}
+            ));
+        }
+
         void MapDocumentCommandFacade::performAddNodes(const std::map<Model::Node*, std::vector<Model::Node*>>& nodes) {
             const std::vector<Model::Node*> parents = collectParents(nodes);
             Notifier<const std::vector<Model::Node*>&>::NotifyBeforeAndAfter notifyParents(nodesWillChangeNotifier, nodesDidChangeNotifier, parents);
@@ -238,6 +258,7 @@ namespace TrenchBroom {
                 addedNodes = kdl::vec_concat(std::move(addedNodes), children);
             }
 
+            connectGroupsToLinkSets(addedNodes);
             setEntityDefinitions(addedNodes);
             setEntityModels(addedNodes);
             setTextures(addedNodes);
@@ -259,6 +280,7 @@ namespace TrenchBroom {
                 unsetEntityModels(children);
                 unsetEntityDefinitions(children);
                 unsetTextures(children);
+                disconnectGroupsFromLinksSets(children);
                 parent->removeChildren(std::begin(children), std::end(children));
             }
 
