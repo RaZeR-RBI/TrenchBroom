@@ -103,6 +103,9 @@ namespace TrenchBroom {
             const std::optional<IdType>& persistentId() const;
             void setPersistentId(IdType persistentId);
 
+            const std::optional<IdType>& sharedPersistentId() const;
+            void setSharedPersistentId(IdType sharedPersistentId);
+
             /**
              * Returns the connected members of the link set. If this group is disconnected from the link set,
              * then it will not be included in the returned vector.
