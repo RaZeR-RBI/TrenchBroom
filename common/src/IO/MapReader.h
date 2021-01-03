@@ -130,6 +130,7 @@ namespace TrenchBroom {
             Model::Node* m_currentNode;
             LayerMap m_layers;
             GroupMap m_groups;
+            GroupMap m_linkedGroups;
             NodeParentList m_unresolvedNodes;
         protected:
             /**
